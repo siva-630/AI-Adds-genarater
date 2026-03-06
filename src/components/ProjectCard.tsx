@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom"
 import type { Project } from "./Types"
 import { useState } from "react";
-import { img, span } from "framer-motion/client";
+import { div, img, span } from "framer-motion/client";
 import { Loader2Icon } from "lucide-react";
 
 const ProjectCard = ({ gen, setGenerations, forCommunity = false }:
@@ -82,15 +82,41 @@ const ProjectCard = ({ gen, setGenerations, forCommunity = false }:
           <div className="p-4">
             <div className="flex items-start justify-between gap-4">
 
-              <div>
-                <h3>{gen.productName}</h3>
-                <p>create: {new Date(gen.createdAt).toLocaleString()}</p>
+              <div className="flex-1">
+                <h3 className="font-medium text-lg mb-1">{gen.productName}</h3>
+
+                <p className="text-sm text-gray-400">create: {new Date(gen.createdAt).toLocaleString()}</p>
                 {gen.updatedAt && (
-                  <p>Update : {new Date(gen.createdAt).toLocaleString()}</p>
+                  <p className="text-xs text-gray-500 mt-1">Update : {new Date(gen.createdAt).toLocaleString()}</p>
                 )}
               </div>
 
+              <div className="text-right">
+                <div className="mt-2 flex flex-col items-end gap-1">
+                  <span className="text-xs px-2 py-1 bg-white/5">
+                    Aspect: {gen.aspectRatio}
+                  </span>
+                </div>
+              </div>
+
             </div>
+
+            {/* product description */}
+            {gen.productDescription && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-400 mb-1">Description</p>
+                <div className="text-sm text-gray-300 bg-white/3 p-2 rounded-md wrap-break-word">{gen.productDescription}</div>
+              </div>
+            )}
+            
+            {/* user prompt */}
+
+            {gen.userPrompt && (
+              <div className="mt-3">
+                
+                <div className="text-xs text-gray-300">{gen.userPrompt}</div>
+              </div>
+              )}
 
           </div>
 
