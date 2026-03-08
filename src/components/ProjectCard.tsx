@@ -1,10 +1,32 @@
 import type { Project } from "./Types"
-import { EllipsisIcon, Loader2Icon } from "lucide-react";
+import { EllipsisIcon, ImageIcon, Loader2Icon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const ProjectCard = ({ gen, forCommunity = false }:
   { gen: Project; forCommunity?: boolean }
 ) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const mediaTypeLabel = gen.generatedImage && gen.generatedVideo
+    ? "Image + Video"
+    : gen.generatedVideo
+      ? "Video"
+      : gen.generatedImage
+        ? "Image"
+        : "Pending";
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     
@@ -64,12 +86,47 @@ const ProjectCard = ({ gen, forCommunity = false }:
             {/* action menu */}
           
             {!forCommunity && (
-              
-              <div className="absolute right-3 top-3 sm:opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
-                <div className="absolute top-3 right-3">
-                  <EllipsisIcon className="ml-auto bg-black/10 rounded-full p-1 size-7" />
-                </div>
+              <div
+                ref={menuRef}
+                className="absolute right-3 top-3 z-40"
+              >
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="bg-black/60 hover:bg-black/80 text-white border border-white/20 rounded-full p-1.5 transition shadow"
+                  aria-label="Open card menu"
+                >
+                  <EllipsisIcon className="size-5" />
+                </button>
 
+                {menuOpen && (
+                  <ul className="absolute right-0 mt-2 w-40 bg-black/70 backdrop-blur text-white border border-gray-500/50 rounded-lg shadow-md py-1 text-xs">
+                    {gen.generatedImage && (
+                      <li>
+                        <a
+                          href={gen.generatedImage}
+                          download
+                          className="flex gap-2 items-center px-4 py-2 hover:bg-black/30 cursor-pointer"
+                        >
+                          <ImageIcon size={14} /> Download image
+                        </a>
+                      </li>
+                    )}
+                    {gen.generatedVideo && (
+                      <li>
+                        <a
+                          href={gen.generatedVideo}
+                          download
+                          className="flex gap-2 items-center px-4 py-2 hover:bg-black/30 cursor-pointer"
+                        >
+                          <span className="text-[10px] font-semibold">VID</span> Download video
+                        </a>
+
+                        
+                      </li>
+                    )}
+                  </ul>
+                )}
               </div>
              )}
 
@@ -105,6 +162,12 @@ const ProjectCard = ({ gen, forCommunity = false }:
                   <span className="text-xs px-2 py-1 bg-white/5">
                     Aspect: {gen.aspectRatio}
                   </span>
+                  <button
+                    type="button"
+                    className="text-xs px-2 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-indigo-200 cursor-default"
+                  >
+                    Contains: {mediaTypeLabel}
+                  </button>
                 </div>
               </div>
 
