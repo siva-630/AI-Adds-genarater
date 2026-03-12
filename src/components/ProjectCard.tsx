@@ -1,10 +1,23 @@
 import type { Project } from "./Types"
-import { EllipsisIcon, ImageIcon, Loader2Icon } from "lucide-react";
+import { EllipsisIcon, ImageIcon, Loader2Icon, Share2Icon, Trash2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { GhostButton, PrimaryButton } from "./Buttons";
+import { useNavigate } from "react-router-dom";
 
-const ProjectCard = ({ gen, forCommunity = false }:
-  { gen: Project; forCommunity?: boolean }
-) => {
+const ProjectCard = ({
+  gen,
+  forCommunity = false,
+  onShare,
+  onDelete,
+  onTogglePublished,
+}: {
+  gen: Project;
+  forCommunity?: boolean;
+  onShare?: (project: Project) => void;
+  onDelete?: (id: string) => void;
+  onTogglePublished?: (id: string) => void;
+}) => {
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const mediaTypeLabel = gen.generatedImage && gen.generatedVideo
@@ -27,6 +40,47 @@ const ProjectCard = ({ gen, forCommunity = false }:
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const handleShare = async () => {
+    if (onShare) {
+      onShare(gen);
+      setMenuOpen(false);
+      return;
+    }
+
+    const url = gen.generatedVideo || gen.generatedImage;
+    if (!url) return;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: gen.productName,
+          text: gen.productDescription || "Check out this generation",
+          url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch {
+      // no-op (cancelled share or clipboard blocked)
+    } finally {
+      setMenuOpen(false);
+    }
+  };
+
+  const handleDelete = () => {
+    onDelete?.(gen.id);
+    setMenuOpen(false);
+  };
+
+  const handleViewDetails = () => {
+    navigate(`/result/${gen.id}`);
+    window.scrollTo(0, 0);
+  };
+
+  const handleTogglePublished = () => {
+    onTogglePublished?.(gen.id);
+  };
 
   return (
     
@@ -101,6 +155,17 @@ const ProjectCard = ({ gen, forCommunity = false }:
 
                 {menuOpen && (
                   <ul className="absolute right-0 mt-2 w-40 bg-black/70 backdrop-blur text-white border border-gray-500/50 rounded-lg shadow-md py-1 text-xs">
+                    {(gen.generatedImage || gen.generatedVideo) && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={handleShare}
+                          className="w-full text-left flex gap-2 items-center px-4 py-2 hover:bg-black/30 cursor-pointer"
+                        >
+                          <Share2Icon size={14} /> Share
+                        </button>
+                      </li>
+                    )}
                     {gen.generatedImage && (
                       <li>
                         <a
@@ -123,6 +188,17 @@ const ProjectCard = ({ gen, forCommunity = false }:
                         </a>
 
                         
+                      </li>
+                    )}
+                    {onDelete && (
+                      <li>
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          className="w-full text-left flex gap-2 items-center px-4 py-2 text-red-300 hover:bg-red-500/20 cursor-pointer"
+                        >
+                          <Trash2Icon size={14} /> Delete
+                        </button>
                       </li>
                     )}
                   </ul>
@@ -189,6 +265,17 @@ const ProjectCard = ({ gen, forCommunity = false }:
                 <div className="text-xs text-gray-300">{gen.userPrompt}</div>
               </div>
               )}
+
+            {!forCommunity && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <GhostButton onClick={handleViewDetails}>
+                  View details
+                </GhostButton>
+                <PrimaryButton onClick={handleTogglePublished}>
+                  {Boolean(gen.isPublished) ? "Unpublished" : "Published"}
+                </PrimaryButton>
+              </div>
+            )}
 
           </div>
 

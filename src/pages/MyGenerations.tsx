@@ -27,6 +27,44 @@ const MyGenerations = () => {
     useEffect(() => {
       fetchMyGeneration()
     }, [])
+
+    const handleDelete = (id: string) => {
+      const shouldDelete = window.confirm("Delete this generation?");
+      if (!shouldDelete) return;
+
+      setGenerations((prev) => prev.filter((item) => item.id !== id));
+    };
+
+    const handleShare = async (gen: Project) => {
+      const shareUrl = gen.generatedVideo || gen.generatedImage;
+      if (!shareUrl) return;
+
+      try {
+        if (navigator.share) {
+          await navigator.share({
+            title: gen.productName,
+            text: gen.productDescription || "Check out this generation",
+            url: shareUrl,
+          });
+          return;
+        }
+
+        await navigator.clipboard.writeText(shareUrl);
+        alert("Share link copied to clipboard");
+      } catch {
+        // no-op
+      }
+    };
+
+    const togglePublished = (id: string) => {
+      setGenerations((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, isPublished: !Boolean(item.isPublished) }
+            : item
+        )
+      );
+    };
   return loading ? (
   
     <div>
@@ -48,7 +86,13 @@ const MyGenerations = () => {
 
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
             {generation.map((gen) => (
-              <ProjectCard key= {gen.id} gen={gen}  />
+              <ProjectCard
+                key={gen.id}
+                gen={gen}
+                onShare={handleShare}
+                onDelete={handleDelete}
+                onTogglePublished={togglePublished}
+              />
             ))}
           </div>
           

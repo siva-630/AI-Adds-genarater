@@ -1,10 +1,13 @@
 import { useState } from "react"
 import Title from "../components/Title"
 import UploadZone from "../components/UploadZone"
-import { Loader2, Loader2Icon, RectangleHorizontalIcon, RectangleVerticalIcon, Wand2Icon } from "lucide-react";
+import { Loader2Icon, RectangleHorizontalIcon, RectangleVerticalIcon, Wand2Icon } from "lucide-react";
 import { PrimaryButton } from "../components/Buttons";
+import { useAuth, useClerk } from "@clerk/react";
 
 const Generate = () => {
+    const { isSignedIn } = useAuth();
+    const { openSignIn } = useClerk();
 
 
     const [name, setName] = useState(' ');
@@ -14,10 +17,22 @@ const Generate = () => {
     const[productImage,setProductImage] = useState<File | null >(null)
     const[modelImage , setModelImage] = useState<File | null>(null)
     const [userPrompt, setUserPrompt] = useState('');
-    const [isGenerating, setIsGenerating] = useState(false);
+    const [isGenerating] = useState(false);
+
+    const requireAuth = () => {
+        if (isSignedIn) return true;
+
+        openSignIn?.();
+        return false;
+    };
 
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'product' | 'model') => {
+        if (!requireAuth()) {
+            e.target.value = '';
+            return;
+        }
+
         if (e.target.files && e.target.files[0]) {
             if (type === 'product') setProductImage(e.target.files[0]);
             else setModelImage(e.target.files[0])
@@ -26,6 +41,8 @@ const Generate = () => {
 
     const handleGenerate = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
+        if (!requireAuth()) return;
     }
 
 

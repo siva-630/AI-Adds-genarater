@@ -22,7 +22,17 @@ export const Community = () => {
   useEffect(() => {
     fetchProjects()
   }, [])
-  
+
+  const togglePublished = (id: string) => {
+    setProjects((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, isPublished: !Boolean(item.isPublished) }
+          : item
+      )
+    );
+  }
+
 
 
   return loading? (
@@ -44,7 +54,11 @@ export const Community = () => {
 
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
             {Projects.map((project) => (
-              <ProjectCard key= {project.id} gen={project} />
+              <ProjectCard
+                key={project.id}
+                gen={project}
+                onTogglePublished={togglePublished}
+              />
             ))}
           </div>
           
