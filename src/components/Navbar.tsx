@@ -1,13 +1,52 @@
 import { FolderKanbanIcon, MenuIcon, SparklesIcon, UsersIcon, WalletCardsIcon, XIcon } from 'lucide-react';
 import { PrimaryButton } from './Buttons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { assets } from '../assets/assets';
-import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react';
+import { Show, SignInButton, SignUpButton, UserButton, useUser } from '@clerk/react';
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
+    const { isSignedIn, user } = useUser();
+    const defaultCredits = 20;
+    const [credits, setCredits] = useState(defaultCredits);
+
+    const apiBase = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+
+    useEffect(() => {
+        const syncCredits = async () => {
+            if (!isSignedIn || !user?.id) {
+                setCredits(defaultCredits);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiBase}/api/user/credits?userId=${encodeURIComponent(user.id)}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                setCredits(typeof data.credits === 'number' ? data.credits : defaultCredits);
+            } catch {
+                setCredits(defaultCredits);
+            }
+        };
+
+        syncCredits();
+    }, [apiBase, defaultCredits, isSignedIn, user?.id]);
+
+    useEffect(() => {
+        const onCreditsUpdated = (event: Event) => {
+            const customEvent = event as CustomEvent<{ credits?: number }>;
+            const newCredits = customEvent.detail?.credits;
+            if (typeof newCredits === 'number') {
+                setCredits(newCredits);
+            }
+        };
+
+        window.addEventListener('credits-updated', onCreditsUpdated as EventListener);
+        return () => window.removeEventListener('credits-updated', onCreditsUpdated as EventListener);
+    }, []);
 
     const navLinks = [
         { name: 'Home', href: '/' },
@@ -39,6 +78,10 @@ export default function Navbar() {
 
                 <div className='hidden md:flex items-center gap-3'>
                     <Show when="signed-out">
+                        <span className='inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200'>
+                            Credits: {defaultCredits}
+                        </span>
+
                         <SignInButton mode="modal">
                             <button className='inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold border border-indigo-300/70 bg-indigo-500/35 text-white shadow-[0_0_20px_rgba(99,102,241,0.35)] hover:bg-indigo-500/50 active:scale-95 transition-all'>
                                 Sign in
@@ -53,6 +96,10 @@ export default function Navbar() {
                     </Show>
 
                     <Show when="signed-in">
+                        <span className='inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200'>
+                            Credits: {credits}
+                        </span>
+
                         <UserButton>
                             <UserButton.MenuItems>
                                 <UserButton.Link
@@ -123,6 +170,10 @@ export default function Navbar() {
                             {link.name}
                         </a>
                     ))}
+
+                    <span className='inline-flex items-center rounded-full border border-emerald-300/40 bg-emerald-500/20 px-3 py-1 text-sm font-semibold text-emerald-200'>
+                        Credits: {defaultCredits}
+                    </span>
 
                     <SignInButton mode="modal">
                         <button onClick={() => setIsOpen(false)} className='inline-flex items-center justify-center gap-2 rounded-full px-5 py-2 text-sm font-semibold border border-indigo-300/70 bg-indigo-500/35 text-white shadow-[0_0_20px_rgba(99,102,241,0.35)] hover:bg-indigo-500/50 active:scale-95 transition-all'>

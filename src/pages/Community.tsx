@@ -1,39 +1,35 @@
 import { useEffect, useState } from "react"
 import type { Project } from "../components/Types"
-import { dummyGenerations } from "../assets/assets";
 import { Loader2 } from "lucide-react";
 import ProjectCard from "../components/ProjectCard";
+import { api } from "../lib/api";
 
 
 export const Community = () => {
   const [Projects, setProjects] = useState<Project[]>([])
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
 
   const fetchProjects = async () => {
-    setTimeout(() => {
-      setProjects(dummyGenerations);
-      setLoading(false)
-    },3000)
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.getPublishedProjects();
+      setProjects(data.projects ?? []);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load published projects");
+      setProjects([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
 
   useEffect(() => {
     fetchProjects()
   }, [])
-
-  const togglePublished = (id: string) => {
-    setProjects((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, isPublished: !Boolean(item.isPublished) }
-          : item
-      )
-    );
-  }
-
-
 
   return loading? (
     <div>
@@ -53,11 +49,12 @@ export const Community = () => {
           {/* projects */}
 
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
+            {error && <p className="text-red-300 mb-4">{error}</p>}
             {Projects.map((project) => (
               <ProjectCard
                 key={project.id}
                 gen={project}
-                onTogglePublished={togglePublished}
+                forCommunity
               />
             ))}
           </div>

@@ -2,24 +2,131 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { dummyGenerations } from "../assets/assets";
 import { GhostButton, PrimaryButton } from "../components/Buttons";
+import { useAuth, useClerk, useUser } from "@clerk/react";
+import type { Project } from "../components/Types";
 
 const Result = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const { isSignedIn, getToken } = useAuth();
+  const { openSignIn } = useClerk();
+  const { user } = useUser();
 
-  const generation = useMemo(
+  const fallbackGeneration = useMemo(
     () => dummyGenerations.find((item) => item.id === projectId) ?? dummyGenerations[0],
     [projectId]
   );
+  const [generation, setGeneration] = useState<Project | null>(null);
 
-  const [activeMedia, setActiveMedia] = useState<"image" | "video">(
-    generation?.generatedVideo ? "video" : "image"
-  );
+  const [activeMedia, setActiveMedia] = useState<"image" | "video">("image");
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isLoadingGeneration, setIsLoadingGeneration] = useState(true);
   const [dotCount, setDotCount] = useState(1);
+  const apiBase = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
-  const hasImage = Boolean(generation?.generatedImage);
-  const hasVideo = Boolean(generation?.generatedVideo);
+  useEffect(() => {
+    const loadProject = async () => {
+      if (!projectId) {
+        setGeneration(null);
+        setIsLoadingGeneration(false);
+        return;
+      }
+
+      try {
+        setIsLoadingGeneration(true);
+        const response = await fetch(`${apiBase}/api/projects/${projectId}`);
+        const data = await response.json();
+
+        if (response.ok && data?.project) {
+          setGeneration(data.project);
+          return;
+        }
+
+        setGeneration(null);
+      } catch {
+        setGeneration(null);
+      } finally {
+        setIsLoadingGeneration(false);
+      }
+    };
+
+    loadProject();
+  }, [apiBase, projectId]);
+
+  useEffect(() => {
+    if (!generation) return;
+    setActiveMedia(generation.generatedVideo ? "video" : "image");
+  }, [generation]);
+
+  const handleGenerateVideo = async () => {
+    if (!isSignedIn) {
+      openSignIn?.();
+      return;
+    }
+
+    if (!user?.id) {
+      alert('User not found. Please login again.');
+      return;
+    }
+
+    try {
+      setIsGeneratingVideo(true);
+
+      const response = await fetch(`${apiBase}/api/user/consume-credits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          kind: 'video',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data?.message || 'Failed to consume credits for video');
+        setIsGeneratingVideo(false);
+        return;
+      }
+
+      window.dispatchEvent(new CustomEvent('credits-updated', { detail: { credits: data.credits } }));
+      alert(`Video generation started. Remaining credits: ${data.credits}`);
+    } catch {
+      alert('Something went wrong while consuming credits for video.');
+      setIsGeneratingVideo(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    try {
+      setIsPublishing(true);
+      const token = await getToken();
+      const response = await fetch(`${apiBase}/api/projects/${projectId}/publish`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok && data?.project) {
+        setGeneration(data.project);
+        alert("Published to community!");
+      } else {
+        alert(data?.message || "Failed to publish");
+      }
+    } catch {
+      alert("Something went wrong while publishing.");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const displayedGeneration = generation ?? fallbackGeneration;
+  const hasImage = Boolean(displayedGeneration?.generatedImage);
+  const hasVideo = Boolean(displayedGeneration?.generatedVideo);
 
   useEffect(() => {
     if (!isGeneratingVideo) {
@@ -34,7 +141,17 @@ const Result = () => {
     return () => window.clearInterval(timer);
   }, [isGeneratingVideo]);
 
-  if (!generation) {
+  if (isLoadingGeneration) {
+    return (
+      <div className="min-h-screen my-28 text-white px-6 md:px-12">
+        <div className="max-w-6xl mx-auto bg-white/5 border border-white/10 rounded-2xl p-6">
+          <p className="text-gray-300">Loading result...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!displayedGeneration) {
     return (
       <div className="min-h-screen my-28 text-white px-6 md:px-12">
         <div className="max-w-6xl mx-auto bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -51,7 +168,7 @@ const Result = () => {
         <section className="lg:col-span-2 bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-white/10 flex items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold">{generation.productName}</h1>
+              <h1 className="text-xl md:text-2xl font-semibold">{displayedGeneration.productName}</h1>
               <p className="text-xs text-gray-400">Generation Result</p>
             </div>
 
@@ -78,24 +195,24 @@ const Result = () => {
           <div className="relative bg-black/20">
             <div
               className={`${
-                generation.aspectRatio === "9:16"
+                displayedGeneration.aspectRatio === "9:16"
                   ? "aspect-9/16"
-                  : generation.aspectRatio === "16:9"
+                  : displayedGeneration.aspectRatio === "16:9"
                     ? "aspect-video"
                     : "aspect-square"
               } max-h-[75vh] mx-auto`}
             >
               {activeMedia === "video" && hasVideo ? (
                 <video
-                  src={generation.generatedVideo}
+                  src={displayedGeneration.generatedVideo}
                   controls
                   playsInline
                   className="w-full h-full object-contain"
                 />
               ) : hasImage ? (
                 <img
-                  src={generation.generatedImage}
-                  alt={generation.productName}
+                  src={displayedGeneration.generatedImage}
+                  alt={displayedGeneration.productName}
                   className="w-full h-full object-contain"
                 />
               ) : (
@@ -116,7 +233,7 @@ const Result = () => {
 
             {!hasVideo && (
               <PrimaryButton
-                onClick={() => setIsGeneratingVideo(true)}
+                onClick={handleGenerateVideo}
                 disabled={isGeneratingVideo}
               >
                 {isGeneratingVideo ? `Generating video${".".repeat(dotCount)}` : "Generate video"}
@@ -124,15 +241,21 @@ const Result = () => {
             )}
 
             {hasImage && (
-              <a href={generation.generatedImage} download>
+              <a href={displayedGeneration.generatedImage} download>
                 <GhostButton className="w-full justify-center">Download image</GhostButton>
               </a>
             )}
 
             {hasVideo && (
-              <a href={generation.generatedVideo} download>
+              <a href={displayedGeneration.generatedVideo} download>
                 <GhostButton className="w-full justify-center">Download video</GhostButton>
               </a>
+            )}
+
+            {!displayedGeneration.isPublished && (
+                <GhostButton className="w-full justify-center" onClick={handlePublish} disabled={isPublishing}>
+                   {isPublishing ? "Publishing..." : "Publish to Community"}
+                </GhostButton>
             )}
           </div>
 
@@ -143,10 +266,10 @@ const Result = () => {
           )}
 
           <div className="mt-6 pt-4 border-t border-white/10 text-sm text-gray-300 space-y-1">
-            <p><span className="text-gray-400">Aspect:</span> {generation.aspectRatio}</p>
-            <p><span className="text-gray-400">Created:</span> {new Date(generation.createdAt).toLocaleString()}</p>
-            {generation.productDescription && (
-              <p><span className="text-gray-400">Description:</span> {generation.productDescription}</p>
+            <p><span className="text-gray-400">Aspect:</span> {displayedGeneration.aspectRatio}</p>
+            <p><span className="text-gray-400">Created:</span> {new Date(displayedGeneration.createdAt).toLocaleString()}</p>
+            {displayedGeneration.productDescription && (
+              <p><span className="text-gray-400">Description:</span> {displayedGeneration.productDescription}</p>
             )}
           </div>
         </aside>
